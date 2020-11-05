@@ -57,8 +57,8 @@ def parse_args():
             help='Use all scales instead of just pentatonic scales')
     parser.add_argument('-p', '--pattern-count', type=int, default=16,
             help="Generate this number of patterns for each song. Default is 16.")
-    parser.add_argument('-s', '--songs', type=int, default=24,
-            help='The number of songs to create. Default is 24.')
+    parser.add_argument('-s', '--songs', type=int, default=10,
+            help='The number of songs to create. Default is 10.')
     parser.add_argument('-c', '--max-change', type=int, default=3,
             help='The maximum number of notes to move on the scale when generating '
                 'a new note. The default is 3. There is still a chance of '
