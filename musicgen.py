@@ -25,7 +25,7 @@ PENT_SCALES = {
         'pentatonic minor': MINOR_PENTATONIC
         }
 
-TEMPLATE = """Project Version="2.2.1" TempoMode="FamiStudio" Name="Untitled" Author="python" Copyright="2020"
+TEMPLATE = """Project Version="2.2.1" TempoMode="FamiStudio" Name="Untitled" Author="musicgen" Copyright="2020"
 	Instrument Name="Lead0"
 		Envelope Type="Volume" Length="4" Values="12,10,8,6"
 		Envelope Type="DutyCycle" Length="1" Values="0"
@@ -55,7 +55,7 @@ def parse_args():
             'Output goes to stdout if no file is specified.')
     parser.add_argument('-a', '--all-scales', action='store_true', 
             help='Use all scales instead of just pentatonic scales')
-    parser.add_argument('-p', '--pattern-count', type=int, default=16,
+    parser.add_argument('--pattern-count', type=int, default=16, metavar='COUNT',
             help="Generate this number of patterns for each song. Default is 16.")
     parser.add_argument('-s', '--songs', type=int, default=10,
             help='The number of songs to create. Default is 10.')
@@ -63,23 +63,23 @@ def parse_args():
             help='The maximum number of notes to move on the scale when generating '
                 'a new note. The default is 3. There is still a chance of '
                 'jumping to a random note for more variety.')
-    parser.add_argument('--min-note-length', type=int, default=8,
+    parser.add_argument('--min-note-length', type=int, default=8, metavar='FRAMES',
             help='The minimum number of frames per note in a song. The default is 8.')
-    parser.add_argument('--max-note-length', type=int, default=12,
+    parser.add_argument('--max-note-length', type=int, default=12, metavar='FRAMES',
             help='The maximum number of frames per note in a song. The default is 12.')
-    parser.add_argument('--min-octave', type=int, default=1,
+    parser.add_argument('--min-octave', type=int, default=1, metavar='OCTAVE',
             help='The lowest octave to use. The default is 1.')
-    parser.add_argument('--max-octave', type=int, default=4,
+    parser.add_argument('--max-octave', type=int, default=4, metavar='OCTAVE',
             help='The highest octave to use. The default is 4.')
-    parser.add_argument('--tri-max-octave', type=int, default=4,
+    parser.add_argument('--tri-max-octave', type=int, default=4, metavar='OCTAVE',
             help='The highest octave to use for the triangle wave channel. '
                 'The default is 4.')
-    parser.add_argument('--new-note-chance', type=float, default=0.4,
+    parser.add_argument('-n', '--new-note-chance', type=float, default=0.4, metavar='CHANCE',
             help='The chance to generate a new note at each beat. Default is 0.4')
-    parser.add_argument('--tri-new-note-chance', type=float, default=0.3,
+    parser.add_argument('-t', '--tri-new-note-chance', type=float, default=0.3, metavar='CHANCE',
             help='The chance to generate a new note at each beat on the triangle '
             'wave channel. Default is 0.3.')
-    parser.add_argument('--stop-note-chance', type=float, default=0.2,
+    parser.add_argument('-p', '--stop-note-chance', type=float, default=0.2, metavar='CHANCE',
             help='The chance to generate a stop note when creating a new note. '
             'Default is 0.2')
     parser.add_argument('--scale', type=str, default=None,
@@ -113,6 +113,9 @@ def print_scale(scale_name:str):
 
 def create_scale(scale:List[int], min_octave:int, max_octave:int, offset:int):
     full_scale = []
+    if offset > 5: # move down one octave if higher notes are chosen.
+        min_octave -=1
+        max_octave -=1
     for i in range(min_octave, max_octave+1):
         for j in scale:
             octave = i + ((j + offset) // 12)
