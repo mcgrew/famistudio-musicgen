@@ -113,9 +113,6 @@ def print_scale(scale_name:str):
 
 def create_scale(scale:List[int], min_octave:int, max_octave:int, offset:int):
     full_scale = []
-    if offset > 5: # move down one octave if higher notes are chosen.
-        min_octave -=1
-        max_octave -=1
     for i in range(min_octave, max_octave+1):
         for j in scale:
             octave = i + ((j + offset) // 12)
