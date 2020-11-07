@@ -10,7 +10,10 @@ There are some example tracks from this software on [Soundcloud](https://soundcl
     usage: musicgen.py [-h] [-a] [--pattern-count COUNT] [-s SONGS]
                        [-c MAX_CHANGE] [--min-note-length FRAMES]
                        [--max-note-length FRAMES] [--min-octave OCTAVE]
-                       [--max-octave OCTAVE] [--tri-max-octave OCTAVE] [-n CHANCE]
+                       [--max-octave OCTAVE] [--tri-max-octave OCTAVE]
+                       [--sq1-repeat-at PATTERN] [--sq2-repeat-at PATTERN]
+                       [--tri-repeat-at PATTERN]
+                       [--percussion-patterns PERCUSSION_PATTERNS] [-n CHANCE]
                        [-t CHANCE] [-p CHANCE] [--scale SCALE]
                        [filename]
 
@@ -42,9 +45,28 @@ There are some example tracks from this software on [Soundcloud](https://soundcl
       --tri-max-octave OCTAVE
                             The highest octave to use for the triangle wave
                             channel. The default is 4.
+      --sq1-repeat-at PATTERN
+                            Forces square wave track 1 to start repeating after
+                            the given number of patterns. This works best if it is
+                            a factor of pattern count. The default is 0 (do not
+                            repeat).
+      --sq2-repeat-at PATTERN
+                            Forces square wave track 1 to start repeating after
+                            the given number of patterns. This works best if it is
+                            a factor of pattern count. The default is 0 (do not
+                            repeat).
+      --tri-repeat-at PATTERN
+                            Forces triangle wave track to start repeating after
+                            the given number of patterns. This works best if it is
+                            a factor of pattern count. The default is 0 (do not
+                            repeat).
+      --percussion-patterns PERCUSSION_PATTERNS
+                            The number of percussion patterns to generate. This
+                            works best if it is a factor of pattern count. The
+                            default is 1.
       -n CHANCE, --new-note-chance CHANCE
                             The chance to generate a new note at each beat.
-                            Default is 0.4
+                            Default is 0.35
       -t CHANCE, --tri-new-note-chance CHANCE
                             The chance to generate a new note at each beat on the
                             triangle wave channel. Default is 0.3.

@@ -3,6 +3,7 @@
 from random import random, randint, choice
 from sys import argv, stdout, stderr, exit
 from argparse import ArgumentParser
+from io import StringIO
 from typing import IO, List
 
 NOTES = ('C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B')
@@ -15,14 +16,14 @@ MAJOR_PENTATONIC = (0, 2, 4, 7, 9)
 SCALES = {
         'major': MAJOR,
         'minor': MINOR, 
-        'melodic minor': MELODIC_MINOR, 
-        'harmonic minor': HARMONIC_MINOR,
-        'pentatonic major': MAJOR_PENTATONIC,
-        'pentatonic minor': MINOR_PENTATONIC
+#          'melodic minor': MELODIC_MINOR, 
+#          'harmonic minor': HARMONIC_MINOR,
+        'major pentatonic': MAJOR_PENTATONIC,
+        'minor pentatonic': MINOR_PENTATONIC
         }
 PENT_SCALES = {
-        'pentatonic major': MAJOR_PENTATONIC,
-        'pentatonic minor': MINOR_PENTATONIC
+        'major pentatonic': MAJOR_PENTATONIC,
+        'minor pentatonic': MINOR_PENTATONIC
         }
 
 TEMPLATE = """Project Version="2.2.1" TempoMode="FamiStudio" Name="Untitled" Author="musicgen" Copyright="2020"
@@ -47,6 +48,13 @@ TEMPLATE = """Project Version="2.2.1" TempoMode="FamiStudio" Name="Untitled" Aut
 	Instrument Name="TriBass"
 """
 
+# Createa a constant tuple for all notes.
+#  ALL_NOTES = []
+#  for i in range(0, 8):
+#      for n in NOTES:
+#          ALL_NOTES.append(f'{n}{i}')
+#  ALL_NOTES = tuple(ALL_NOTES)
+
 NOTES_PER_PATTERN = 16
 
 def parse_args():
@@ -67,6 +75,7 @@ def parse_args():
             help='The minimum number of frames per note in a song. The default is 8.')
     parser.add_argument('--max-note-length', type=int, default=12, metavar='FRAMES',
             help='The maximum number of frames per note in a song. The default is 12.')
+
     parser.add_argument('--min-octave', type=int, default=1, metavar='OCTAVE',
             help='The lowest octave to use. The default is 1.')
     parser.add_argument('--max-octave', type=int, default=4, metavar='OCTAVE',
@@ -74,18 +83,104 @@ def parse_args():
     parser.add_argument('--tri-max-octave', type=int, default=4, metavar='OCTAVE',
             help='The highest octave to use for the triangle wave channel. '
                 'The default is 4.')
-    parser.add_argument('-n', '--new-note-chance', type=float, default=0.4, metavar='CHANCE',
-            help='The chance to generate a new note at each beat. Default is 0.4')
+
+    parser.add_argument('--sq1-repeat-at', type=int, default=0, metavar='PATTERN',
+            help='Forces square wave track 1 to start repeating after the given number '
+            'of patterns. This works best if it is a factor of pattern count. '
+            'The default is 0 (do not repeat).')
+    parser.add_argument('--sq2-repeat-at', type=int, default=0, metavar='PATTERN',
+            help='Forces square wave track 1 to start repeating after the given number '
+            'of patterns. This works best if it is a factor of pattern count. '
+            'The default is 0 (do not repeat).')
+    parser.add_argument('--tri-repeat-at', type=int, default=0, metavar='PATTERN',
+            help='Forces triangle wave track to start repeating after the given number '
+            'of patterns. This works best if it is a factor of pattern count. '
+            'The default is 0 (do not repeat).')
+    parser.add_argument('--percussion-patterns', type=int, default=1,
+            help='The number of percussion patterns to generate. This works '
+            'best if it is a factor of pattern count. The default is 1.')
+
+    parser.add_argument('-n', '--new-note-chance', type=float, default=0.35, metavar='CHANCE',
+            help='The chance to generate a new note at each beat. Default is 0.35')
     parser.add_argument('-t', '--tri-new-note-chance', type=float, default=0.3, metavar='CHANCE',
             help='The chance to generate a new note at each beat on the triangle '
             'wave channel. Default is 0.3.')
     parser.add_argument('-p', '--stop-note-chance', type=float, default=0.2, metavar='CHANCE',
             help='The chance to generate a stop note when creating a new note. '
             'Default is 0.2')
+
     parser.add_argument('--scale', type=str, default=None,
             help='Print the notes in a scale to the command line and exit. '
             'e.g. "C major" or "F# minor".')
     return parser.parse_args()
+
+class Track:
+    def __init__(self, channel:str, repeat_at:int, scale:list, root:str, instrument:str,
+            note_length:int, new_note_chance:float, stop_chance:float):
+        self.channel = channel
+        self.repeat_at = repeat_at or args.pattern_count
+        self.note_count = self.repeat_at * NOTES_PER_PATTERN
+        self.scale = scale
+        self.root = root
+        self.instrument = instrument
+        self.note_length = note_length
+        self.new_note_chance = new_note_chance
+        self.stop_chance = stop_chance
+
+    def generate(self):
+        self.notes = {}
+        current = randint(0, len(self.scale)-1)
+        stopped = False
+        for i in range(self.note_count):
+            note = self.scale[current]
+            if random() > self.new_note_chance: # chance of generating a new note
+                continue
+            if random() > self.stop_chance: # chance of a stop note
+                self.add_note(i * self.note_length, note)
+                stopped = False
+            else:
+                if not stopped:
+                    self.add_note(i * self.note_length, None)
+                    stopped = True
+            if random() > 1/16:
+                current += randint(-args.max_change, args.max_change)
+                current = max(0, min(len(self.scale)-1, current))
+            else:
+                current = randint(0, len(self.scale)-1)
+        return self
+
+    def add_note(self, time:int, note:str):
+        self.notes[time] = note
+
+    def note_at(self, time):
+        times = sorted(self.notes.keys())
+        ret = times[0]
+        for t in times:
+            if t > time:
+                break
+            ret = t
+        return ret, self.notes[ret]
+
+    def __str__(self):
+        buf = StringIO()
+        buf.write(f'\t\tChannel Type="{self.channel}"\n')
+        for i in range(self.note_count):
+            if not i % NOTES_PER_PATTERN:
+                buf.write(f'\t\t\tPattern Name="Pattern {i//NOTES_PER_PATTERN}"\n')
+            time = self.note_length * i
+            if time in self.notes:
+                note = self.notes[time]
+                if note:
+                    buf.write('\t\t\t\tNote '
+                        f'Time="{(i%NOTES_PER_PATTERN) * self.note_length}" '
+                        f'Value="{note}" Instrument="{self.instrument}"\n')
+                else:
+                    buf.write('\t\t\t\tNote '
+                        f'Time="{(i%NOTES_PER_PATTERN) * self.note_length}" Value="Stop"\n')
+        for i in range(args.pattern_count):
+            buf.write(f'\t\t\tPatternInstance Time="{i}" Pattern="Pattern {i % self.repeat_at}"\n')
+        buf.seek(0)
+        return buf.read()
 
 def percussion_instrument():
     instr = ("NoiseBassDrum", "NoiseBassDrum", "NoiseBassDrum", "NoiseBassDrum",
@@ -113,39 +208,12 @@ def print_scale(scale_name:str):
 
 def create_scale(scale:List[int], min_octave:int, max_octave:int, offset:int):
     full_scale = []
+    scale_indices = sorted([(x+offset)%12 for x in scale])
     for i in range(min_octave, max_octave+1):
-        for j in scale:
-            octave = i + ((j + offset) // 12)
-            full_scale.append(f'{NOTES[(j+offset)%12]}{octave}')
+        for j in scale_indices:
+            octave = i
+            full_scale.append(f'{NOTES[j]}{octave}')
     return full_scale
-
-def create_track(out:IO, channel:str, scale:list, instrument:str, note_length:int,
-        new_note_chance:float, stop_chance:float, random_note_chance:float):
-
-    note_count = args.pattern_count * NOTES_PER_PATTERN
-    out.write(f'\t\tChannel Type="{channel}"\n')
-    current = randint(0, len(scale)-1)
-    stopped = False
-    for i in range(note_count):
-        note = scale[current]
-        if not i % NOTES_PER_PATTERN:
-            out.write(f'\t\t\tPattern Name="Pattern {i//NOTES_PER_PATTERN}"\n')
-        elif random() > new_note_chance: # chance of generating a new note
-            continue
-        if random() > stop_chance: # chance of a stop note
-            out.write(f'\t\t\t\tNote Time="{(i%NOTES_PER_PATTERN) * note_length}" Value="{note}" Instrument="{instrument}"\n')
-            stopped = False
-        else:
-            if not stopped:
-                out.write(f'\t\t\t\tNote Time="{(i%NOTES_PER_PATTERN) * note_length}" Value="Stop"\n')
-                stopped = True
-        if random() > random_note_chance: # chance of jumping to a random note
-            current += randint(-args.max_change, args.max_change)
-        else:
-            current = randint(0, len(scale)-1)
-        current = max(0, min(len(scale)-1, current))
-    for i in range(args.pattern_count):
-        out.write(f'\t\t\tPatternInstance Time="{i}" Pattern="Pattern {i}"\n')
 
 def main():
     if args.scale:
@@ -159,35 +227,43 @@ def main():
         note_length = randint(args.min_note_length, args.max_note_length) 
         lead = randint(0, 2)
         offset = randint(0, 11)
+        root = NOTES[offset]
         if args.all_scales:
             scale_name, which_scale = choice(list(SCALES.items()))
         else:
             scale_name, which_scale = choice(list(PENT_SCALES.items()))
-        scale_name = f'{NOTES[offset]} {scale_name}'
+        harmony = HARMONIES[scale_name]
+        scale_name = f'{root} {scale_name}'
         octave_size = len(which_scale)
 
-        scale = create_scale(which_scale, args.min_octave, args.max_octave, offset)
+        sq1_scale = create_scale(which_scale, args.min_octave+1, args.max_octave, offset)
+        sq2_scale = create_scale(which_scale, args.min_octave, args.max_octave-1, offset)
         tri_scale = create_scale(which_scale, args.min_octave, args.tri_max_octave, offset)
 
         out.write(f'\tSong Name="{song:02d} ({scale_name})" Length="{args.pattern_count}" '
                 f'LoopPoint="0" PatternLength="{NOTES_PER_PATTERN}" BarLength="4" NoteLength="{note_length}"\n')
 
-        create_track(out, "Square1", scale[octave_size:], f'Lead{lead}', 
-                note_length, args.new_note_chance, args.stop_note_chance, 1/16)
-        create_track(out, "Square2", scale[:-octave_size], f'Lead{lead}',
-                note_length, args.new_note_chance, args.stop_note_chance, 1/16)
-        create_track(out, "Triangle", tri_scale, 'TriBass',
-                note_length, args.tri_new_note_chance, args.stop_note_chance, 1/16)
+        sq1_track = Track("Square1", args.sq1_repeat_at, sq1_scale, root, f'Lead{lead}', 
+                note_length, args.new_note_chance, args.stop_note_chance).generate()
+        sq2_track = Track("Square2", args.sq2_repeat_at, sq2_scale, root, f'Lead{lead}',
+                note_length, args.new_note_chance, args.stop_note_chance).generate()
+        tri_track = Track("Triangle", args.tri_repeat_at, tri_scale, root, 'TriBass',
+                note_length, args.tri_new_note_chance, args.stop_note_chance).generate()
+
+        out.write(str(sq1_track))
+        out.write(str(sq2_track))
+        out.write(str(tri_track))
 
         # Percussion track
         out.write('\t\tChannel Type="Noise"\n')
-        out.write(f'\t\t\tPattern Name="Pattern 1"\n')
-        for i in range(0, args.pattern_count, 2):
-            if random() < 0.5:
-                instr, note = percussion_instrument()
-                out.write(f'\t\t\t\tNote Time="{(i%NOTES_PER_PATTERN) * note_length}" Value="{note}" Instrument="{instr}"\n')
+        for j in range(0, args.percussion_patterns):
+            out.write(f'\t\t\tPattern Name="Pattern {j}"\n')
+            for i in range(0, args.pattern_count, 2):
+                if random() < 0.5:
+                    instr, note = percussion_instrument()
+                    out.write(f'\t\t\t\tNote Time="{(i%NOTES_PER_PATTERN) * note_length}" Value="{note}" Instrument="{instr}"\n')
         for i in range(args.pattern_count):
-            out.write(f'\t\t\tPatternInstance Time="{i}" Pattern="Pattern 1"\n')
+            out.write(f'\t\t\tPatternInstance Time="{i}" Pattern="Pattern {i % args.percussion_patterns}"\n')
 
     if args.filename:
         out.close()
