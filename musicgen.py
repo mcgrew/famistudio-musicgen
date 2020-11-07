@@ -232,7 +232,6 @@ def main():
             scale_name, which_scale = choice(list(SCALES.items()))
         else:
             scale_name, which_scale = choice(list(PENT_SCALES.items()))
-        harmony = HARMONIES[scale_name]
         scale_name = f'{root} {scale_name}'
         octave_size = len(which_scale)
 
